@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.5.0
+Date: 2026-10-07
+  Features:
+    - ChatGPT Edition: subscription sign-in in the local bridge and ChatGPT provider setting.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.2
 Date: 2026-08-29
   Features:

@@ -39,12 +39,16 @@ def complete(messages: list[dict], config: ProviderConfig) -> str | None:
     )
 
     try:
-        response = client.chat.completions.create(
-            model=config.model,
-            messages=messages,
-            max_tokens=config.max_tokens,
-            temperature=config.temperature,
-        )
+        params = dict(model=config.model, messages=messages)
+        if config.provider == "openai" and config.model.startswith("gpt-6"):
+            # GPT-6 reasoning requests use the current completion token limit
+            # and omit sampling parameters unsupported with reasoning enabled.
+            params.update(max_completion_tokens=config.max_tokens,
+                          reasoning_effort="low")
+        else:
+            params.update(max_tokens=config.max_tokens,
+                          temperature=config.temperature)
+        response = client.chat.completions.create(**params)
         if not response.choices:
             log.error(
                 "LM Studio returned no choices (model=%s). "

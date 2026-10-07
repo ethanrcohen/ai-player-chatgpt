@@ -27,7 +27,9 @@ class ProviderConfig:
 
 def get_provider(config: ProviderConfig):
     """Return the complete() callable for the given provider."""
-    if config.provider == "anthropic":
+    if config.provider == "chatgpt":
+        from .chatgpt import complete
+    elif config.provider == "anthropic":
         from .anthropic import complete
     else:
         from .openai_compat import complete

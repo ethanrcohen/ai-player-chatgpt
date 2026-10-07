@@ -22,6 +22,7 @@ import time
 from pathlib import Path
 
 from .agent import Agent
+from .chatgpt_auth import ChatGPTError
 from .config import ConfigLoader
 from .factorio.rcon import RCONGateway
 from .factorio.watcher import FileWatcher
@@ -142,6 +143,10 @@ def main() -> None:
                     watcher.nack(req.req_id)
 
             time.sleep(cfg.poll_interval)
+
+    except ChatGPTError as exc:
+        log.error("%s", exc)
+        sys.exit(1)
 
     except KeyboardInterrupt:
         log.info("Shutting down.")

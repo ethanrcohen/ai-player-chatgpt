@@ -8,3 +8,6 @@ openai>=1.0.0
 
 # Claude (Opus, Sonnet, Haiku) — optional if only using local providers
 anthropic>=0.25.0
+
+# Verify ChatGPT sign-in identity tokens
+PyJWT[crypto]>=2.10,<3

@@ -81,7 +81,7 @@ class Agent:
     @staticmethod
     def _label_chat(entries: list[dict], provider: str) -> list[dict]:
         """Prefix each chat action's message with the provider name."""
-        labels = {"anthropic": "[Claude]", "openai": "[GPT]", "lmstudio": "[Local]", "custom": "[Custom]"}
+        labels = {"chatgpt": "[ChatGPT]", "anthropic": "[Claude]", "openai": "[GPT]", "lmstudio": "[Local]", "custom": "[Custom]"}
         label = labels.get(provider, "[AI]")
         for e in entries:
             if e.get("action") == "chat" and e.get("message"):

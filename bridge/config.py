@@ -117,7 +117,10 @@ class BridgeConfig:
         """Build a ProviderConfig from current settings."""
         provider = self.provider.lower()
 
-        if provider == "anthropic":
+        if provider == "chatgpt":
+            url = "https://api.openai.com/v1"
+            api_key = ""  # OAuth credentials are loaded only by the ChatGPT provider.
+        elif provider == "anthropic":
             url = ""
             api_key = self.anthropic_api_key
         elif provider == "openai":

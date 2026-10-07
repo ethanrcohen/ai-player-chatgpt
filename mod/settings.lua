@@ -12,15 +12,15 @@ data:extend({
     type = "string-setting",
     name = "ai-player-model-name",
     setting_type = "runtime-global",
-    default_value = "local-model",
+    default_value = "auto",
     order = "b"
   },
   {
     type = "string-setting",
     name = "ai-player-provider",
     setting_type = "runtime-global",
-    default_value = "lmstudio",
-    allowed_values = {"lmstudio", "openai", "anthropic", "custom"},
+    default_value = "chatgpt",
+    allowed_values = {"chatgpt", "lmstudio", "openai", "anthropic", "custom"},
     order = "c"
   },
   {

@@ -27,3 +27,6 @@ dist/
 
 # Local dev dedicated-server write dir (saves, config, logs)
 server/
+
+# Local OAuth credentials and host registration
+bridge/.chatgpt/

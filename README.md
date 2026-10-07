@@ -1,3 +1,29 @@
+# AI Player — ChatGPT Edition
+
+A fork of [thedemon117/ai-player-v3](https://github.com/thedemon117/ai-player-v3) with local **Continue with ChatGPT** sign-in. Eligible accounts can use their ChatGPT plan for the Factorio agent. Usage shares your existing plan limits; manage it in ChatGPT Settings → Usage. There is no automatic API billing fallback.
+
+## Subscription setup
+
+1. Install Python dependencies: `pip install -r requirements.txt` (Python 3.10+; macOS/Linux).
+2. Copy `bridge/.env.example` to `bridge/.env`. Set your Factorio output path and RCON password; leave `AI_PROVIDER=chatgpt` and `AI_MODEL=auto`.
+3. Run `python -m bridge.chatgpt_auth login`. Approve sign-in and plan usage in your browser, then choose a model from your account's live catalog.
+4. Optionally verify the connection with `python -m bridge.chatgpt_auth test` (uses a small amount of plan usage).
+5. Install `mod/` as `ai-player-v3_0.5.0`, replacing the original version. Start Factorio with RCON and run `python -m bridge.main`. In game use `/spawn-ai-player`.
+
+The mod ID and commands are retained for save compatibility; do not enable this edition and the original as separate mods. The title identifies this fork. OAuth tokens never go into Factorio saves or mod settings.
+
+Commands: `login`, `add-account`, `accounts`, `use-account CLIENT_ID`, `models`, `select-model [SLUG]`, `test`, `logout` (all via `python -m bridge.chatgpt_auth`). Stop the bridge before switching accounts or signing out. Credentials are stored atomically with owner-only permissions in ignored `bridge/.chatgpt/`; refresh is serialized across local processes. Sign-out attempts remote revocation and retains the account registration for reuse.
+
+Subscription requests use the public Responses endpoint, streaming with `store=false`; actions are returned only after `response.completed`. A permission, quota, authentication, or stream failure stops the bridge rather than repeatedly consuming requests or sending partial actions. Provider availability is determined by your account, not the public API catalog.
+
+Verification: `python -m unittest discover -s tests -v`. Automated tests use simulated responses; browser consent and real gameplay must be verified with your account.
+
+References: [sign-in](https://developers.openai.com/siwc/token-sharing-open-source/sign-in), [models and inference](https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference), [preview limitations](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).
+
+Original project documentation follows; its API-key instructions apply only to the other providers.
+
+---
+
 # AI Player v3
 
 A Factorio 2.0 mod that spawns an autonomous AI character in your game. The AI perceives the factory, decides what to do, and acts — building, mining, smelting, researching, and responding to chat — all driven by an LLM of your choice.
