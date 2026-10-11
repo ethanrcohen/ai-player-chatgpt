@@ -182,15 +182,9 @@ class RCONGateway:
         keeps running — old request IDs are stale and the mod would block indefinitely
         waiting for responses that will never arrive.
         """
-        lua = (
-            "if storage.ai_player then "
-            "local n=0 "
-            "for _ in pairs(storage.ai_player.pending_requests) do n=n+1 end "
-            "storage.ai_player.pending_requests={} "
-            "game.print('[AI Bridge] Cleared '..n..' pending request(s)') "
-            "else game.print('[AI Bridge] No AI state to clear') end"
-        )
-        result = self.query_lua(lua)
+        # Scenario /sc storage is separate from the mod's storage. Use the
+        # mod command so restarting the bridge actually unblocks its queue.
+        result = self._send("/ai-clear")
         if result is not None:
             log.info("clear_pending_requests: %s", result.strip())
             return True

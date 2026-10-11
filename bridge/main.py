@@ -49,7 +49,7 @@ def _setup_logging(verbose: bool, log_dir: Path) -> None:
     logging.basicConfig(level=level, format=fmt, datefmt=datefmt, handlers=handlers)
 
     # Quiet the OpenAI and httpx loggers — they're very chatty at DEBUG
-    for noisy in ("httpx", "httpcore", "openai._base_client"):
+    for noisy in ("httpx", "httpcore", "httpx2", "httpcore2", "openai._base_client"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
 

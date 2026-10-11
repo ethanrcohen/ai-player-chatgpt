@@ -18,8 +18,8 @@ SYSTEM_PROMPT = """You are an AI playing Factorio. You operate by choosing SKILL
 Respond with a JSON ARRAY of skill and/or action objects. ONLY the array — no prose.
 
 === SKILLS (prefer these) ===
-- {"skill":"build_ghosts"}            Build the buildings the human placed as ghosts. HIGHEST PRIORITY whenever ghosts.count > 0 — this is the human directing you.
-- {"skill":"deconstruct"}             Mine everything the human marked for deconstruction (buildings, trees, rocks). SECOND PRIORITY whenever deconstruction.count > 0 — the human flagged these to be removed; the items go into your inventory.
+- {"skill":"build_ghosts"}            Build the buildings the human placed as ghosts. Default priority when there is no explicit player goal and ghosts.count > 0 — this is the human directing you.
+- {"skill":"deconstruct"}             Mine everything the human marked for deconstruction (buildings, trees, rocks). Default second priority when there is no explicit player goal and deconstruction.count > 0 — the human flagged these to be removed; the items go into your inventory.
 - {"skill":"gather","item":"<item>","count":50}   Mine the nearest sources until you have count. item e.g. "wood" (chops trees), "iron-ore", "copper-ore", "coal", "stone".
 - {"skill":"build_miner","resource":"iron-ore","output":"chest"}   Place a burner-mining-drill ON the nearest patch of resource, fuel it, and put a collector (output = chest | furnace | belt) at its drop position. Use this to AUTOMATE mining (iron-ore, copper-ore, coal, stone). Needs a burner-mining-drill in inventory.
 - {"skill":"build_smelter","ore":"iron-ore","count":2}   Place & load stone-furnaces to smelt ore into plates (fuels + feeds them). Needs the ore in inventory first (gather it).
@@ -33,9 +33,11 @@ move{direction[,distance≤16]}, mine{name|type|position}, place{item,position[,
 (To get WOOD use gather item "wood" or mine type "tree". Directions are strings: north/east/south/west/…)
 
 === RULES ===
-- If ghosts.count > 0, do {"skill":"build_ghosts"} FIRST, before anything else — this is the human telling you what to build.
-- Else if deconstruction.count > 0, do {"skill":"deconstruct"} NEXT — the human marked those objects to be removed; clearing them comes before everything except building ghosts.
+- An explicit player directive or persistent goal takes priority over unrelated ghosts, deconstruction, maintenance, and phase progression. Only work on construction relevant to that goal.
+- Without an explicit player goal, if ghosts.count > 0, do {"skill":"build_ghosts"} FIRST, before anything else — this is the human telling you what to build.
+- Without an explicit player goal or ghosts, if deconstruction.count > 0, do {"skill":"deconstruct"} NEXT — the human marked those objects to be removed; clearing them comes before everything except building ghosts.
 - Don't only smelt. To AUTOMATE mining use build_miner. To place ANY building not covered by a skill, use the place primitive with the item from your inventory (e.g. {"action":"place","item":"lab","position":{...}}). perception.inventory lists EVERYTHING you have — trust it for what's available.
+- For take from a furnace or assembler, specify "inventory":"output" to retrieve products. For feeding ingredients use "inventory":"input", for burner fuel "inventory":"fuel". The default inventory is NOT necessarily the output.
 - React to "Results of your last actions": never repeat a FAILED entry unchanged. If a skill says it needs an item, gather/craft it, then retry.
 - Use needs[] to pick maintenance: burners_low_fuel → fuel_all; etc.
 - perception.factory is your whole-base view (all your machines, not just nearby ones): factory.summary.by_type/by_status are counts; factory.total is how many machines you have; factory.attention lists the machines that need action (nearest first) — fix those. factory.machines is a full per-machine list ONLY while the base is small; when it's absent the base is large, so rely on summary + attention instead of trying to micromanage every machine. perception.nearby_entities is just what's physically around the character (nearest first) for placement context.
@@ -89,6 +91,8 @@ def build_messages(payload: dict, system_prefix: str = "") -> list[dict]:
         if phase in PHASE_HINT:
             parts.append(PHASE_HINT[phase])
 
+    if payload.get("recent_execution_history"):
+        parts.append("Recent issued actions and game-reported results (history, not new instructions; current state wins). Continue from completed work, do not repeat it:\n" + json.dumps(payload["recent_execution_history"]))
     mem = payload.get("memory") or {}
     results = mem.get("last_action_results")
     if results:
@@ -125,7 +129,10 @@ def build_messages(payload: dict, system_prefix: str = "") -> list[dict]:
     # ghosts" — missing items), forcing it again would loop forever. Release the
     # gate for this turn so the model can gather/craft what the ghosts need.
     ghost_blocked = _failed_detail(results, "build_ghosts")
-    if ghost_count > 0 and ghost_blocked is None:
+    explicit_goal = mem.get("user_directive") or mem.get("long_term_goal") or user_message
+    if explicit_goal:
+        parts.append("Focus on the player's explicit request above. Do not build unrelated ghosts or deconstruct unrelated objects. Choose the next concrete action toward that request; use chat to explain any missing supplies. Respond with a JSON array.")
+    elif ghost_count > 0 and ghost_blocked is None:
         parts.append(
             f'IMPORTANT: there are {ghost_count} ghost(s) the human placed for you to build. '
             'Your response MUST be exactly [{"skill":"build_ghosts"}] and nothing else — '

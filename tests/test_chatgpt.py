@@ -119,6 +119,15 @@ class ProviderTests(unittest.TestCase):
             self.assertEqual(args['model'], 'account-model')
             self.assertEqual(sdk.call_args.kwargs['base_url'], auth.RESOURCE)
 
+    def test_completed_event_can_omit_previously_streamed_output(self):
+        client = self.run_stream([
+            NS(type='response.output_text.delta', delta='[{"action":'),
+            NS(type='response.output_text.delta', delta='"wait"}]'),
+            NS(type='response.completed', response=NS(output_text='')),
+        ])
+        with patch.object(chatgpt, 'active_account', return_value={'access_token':'secret','model':'m'}), patch.object(chatgpt, 'OpenAI', return_value=client):
+            self.assertEqual(json.loads(chatgpt.complete([], ProviderConfig(model='auto'))), [{'action':'wait'}])
+
     def test_partial_failure_and_incomplete_never_return_actions(self):
         for events in ([NS(type='response.output_text.delta', delta='[]')],
                        [NS(type='response.incomplete')], [NS(type='error')],

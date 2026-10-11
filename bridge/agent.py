@@ -4,9 +4,10 @@ Router agent (v3).
 Agent.decide() builds the small router prompt from raw perception, calls the
 LLM, parses + validates the response into a list of skill/primitive entries,
 and returns it. Skills are validated against api.SKILLS, primitives against
-api.ACTIONS (see factorio/api.py). Stateless between calls.
+api.ACTIONS (see factorio/api.py). Keeps a short history of execution results.
 """
 
+from collections import deque
 import logging
 import time
 
@@ -30,6 +31,10 @@ def _fallback(reason: str) -> list[dict]:
 
 
 class Agent:
+    def __init__(self):
+        self._recent_results = deque(maxlen=8)
+        self._previous_entries = None
+
     def decide(self, req: PendingRequest, config: BridgeConfig) -> list[dict]:
         provider_cfg = config.to_provider_config()
         complete = get_provider(provider_cfg)
@@ -39,7 +44,14 @@ class Agent:
             log.error("Request %s: no 'perception' in payload — fallback", req.req_id)
             return _fallback("internal error: request had no perception")
 
-        messages = build_messages(payload, config.system_prefix)
+        results = (payload.get("memory") or {}).get("last_action_results")
+        if results:
+            self._recent_results.append({"issued": self._previous_entries, "results": results})
+        # Keep a short record across turns: only the latest result is included
+        # by the mod, which otherwise makes completed construction disappear
+        # from the model's context as soon as it moves to the next step.
+        contextual_payload = dict(payload, recent_execution_history=list(self._recent_results))
+        messages = build_messages(contextual_payload, config.system_prefix)
 
         log.info("Routing request %s via %s (model=%s)",
                  req.req_id, provider_cfg.provider, provider_cfg.model)
@@ -70,6 +82,7 @@ class Agent:
                             elapsed, provider_cfg.provider, provider_cfg.model)
             return _fallback("could not parse a valid skill/action array from the model's reply")
 
+        self._previous_entries = entries
         entries = self._label_chat(entries, provider_cfg.provider)
         log.info("Request %s: %d entr(ies) [%s]", req.req_id, len(entries),
                  ", ".join(e.get("skill") or e.get("action", "?") for e in entries))
