@@ -20,6 +20,8 @@ import webbrowser
 ISSUER = 'https://auth.openai.com'
 RESOURCE = 'https://api.openai.com/v1'
 SCOPES = 'openid profile email offline_access resource.invoke chatgpt.tokens.use.direct'
+# Allow modest clock drift without disabling JWT time validation.
+CLOCK_SKEW_SECONDS = 30
 STORE = Path(__file__).parent / '.chatgpt' / 'accounts.json'
 
 
@@ -75,7 +77,7 @@ def validate_identity(raw, client_id, nonce=None, subject=None):
     try:
         key = jwt.PyJWKClient(ISSUER + '/.well-known/jwks.json', timeout=30).get_signing_key_from_jwt(raw)
         claims = jwt.decode(raw, key.key, algorithms=['RS256'], audience=client_id,
-                            issuer=ISSUER, leeway=5,
+                            issuer=ISSUER, leeway=CLOCK_SKEW_SECONDS,
                             options={'require': ['sub', 'exp', 'iat']})
         if not isinstance(claims['sub'], str) or not claims['sub']:
             raise ChatGPTError('OpenAI ID token is missing a valid account identity.')

@@ -155,3 +155,19 @@ class CliRegressionTests(unittest.TestCase):
             with self.assertRaisesRegex(auth.ChatGPTError, 'could not download OpenAI signing keys') as result:
                 auth.validate_identity('secret-token', 'client')
             self.assertNotIn('secret-token', str(result.exception))
+
+
+class ClockSkewTests(unittest.TestCase):
+    def test_small_drift_allowed_but_future_and_expired_tokens_rejected(self):
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        now = int(time.time())
+        claims = dict(sub='subject', iss=auth.ISSUER, aud='client', nonce='nonce',
+                      iat=now+9, nbf=now+9, exp=now+3600)
+        with patch('jwt.PyJWKClient') as jwks:
+            jwks.return_value.get_signing_key_from_jwt.return_value = NS(key=key.public_key())
+            token = jwt.encode(claims, key, algorithm='RS256')
+            self.assertEqual(auth.validate_identity(token, 'client', 'nonce')['sub'], 'subject')
+            for changes in ({'iat': now+90}, {'nbf': now+90},
+                            {'iat': now-3600, 'nbf': now-3600, 'exp': now-90}):
+                with self.subTest(changes=changes), self.assertRaises(auth.ChatGPTError):
+                    auth.validate_identity(jwt.encode(claims | changes, key, algorithm='RS256'), 'client', 'nonce')
