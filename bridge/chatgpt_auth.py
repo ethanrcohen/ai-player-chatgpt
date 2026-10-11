@@ -78,14 +78,30 @@ def validate_identity(raw, client_id, nonce=None, subject=None):
                             issuer=ISSUER, leeway=5,
                             options={'require': ['sub', 'exp', 'iat']})
         if not isinstance(claims['sub'], str) or not claims['sub']:
-            raise ValueError()
+            raise ChatGPTError('OpenAI ID token is missing a valid account identity.')
         if nonce is not None and claims.get('nonce') != nonce:
-            raise ValueError()
+            raise ChatGPTError('OpenAI ID token nonce did not match this sign-in attempt. Retry login.')
         if subject is not None and claims['sub'] != subject:
-            raise ValueError()
+            raise ChatGPTError('OpenAI returned a different account. Use add-account to sign in separately.')
         return claims
-    except Exception:
-        raise ChatGPTError('OpenAI identity validation failed; existing credentials were preserved.') from None
+    except ChatGPTError:
+        raise
+    except Exception as exc:
+        # Emit only controlled categories, never JWTs, claims, keys or raw errors.
+        reasons = {
+            'PyJWKClientConnectionError': 'could not download OpenAI signing keys; check your network',
+            'PyJWKClientError': 'no matching OpenAI signing key was found',
+            'InvalidAudienceError': 'the ID token audience did not match the issued client ID',
+            'InvalidIssuerError': 'the ID token issuer did not match OpenAI',
+            'ExpiredSignatureError': 'the ID token expired; retry login and check your system clock',
+            'ImmatureSignatureError': 'the ID token is not yet valid; check your system clock',
+            'InvalidSignatureError': 'the ID token signature could not be verified',
+            'InvalidAlgorithmError': 'the ID token used an unsupported signing algorithm',
+            'MissingRequiredClaimError': 'the ID token is missing a required identity claim',
+            'DecodeError': 'the ID token is missing or malformed',
+        }
+        reason = reasons.get(type(exc).__name__, 'unexpected identity verification error')
+        raise ChatGPTError(f'OpenAI identity validation failed: {reason}. Existing credentials were preserved.') from None
 
 
 def token_record(tokens, previous=None):
@@ -303,4 +319,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    # Use one canonical module so provider and CLI share the same error class.
+    from bridge.chatgpt_auth import main as cli_main
+    cli_main()

@@ -134,3 +134,24 @@ class ProviderTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class CliRegressionTests(unittest.TestCase):
+    def test_module_entrypoint_catches_provider_error(self):
+        import contextlib
+        import io
+        import runpy
+        import sys
+        error = io.StringIO()
+        with patch.object(chatgpt, 'active_account', side_effect=auth.ChatGPTError('Run login first.')), patch.object(sys, 'argv', ['chatgpt_auth', 'test']), contextlib.redirect_stderr(error):
+            with self.assertRaises(SystemExit) as result:
+                runpy.run_module('bridge.chatgpt_auth', run_name='__main__')
+        self.assertEqual(result.exception.code, 1)
+        self.assertIn('Run login first.', error.getvalue())
+        self.assertNotIn('Traceback', error.getvalue())
+
+    def test_identity_diagnostics_do_not_expose_secrets(self):
+        with patch('jwt.PyJWKClient') as client:
+            client.return_value.get_signing_key_from_jwt.side_effect = jwt.PyJWKClientConnectionError('secret-token-in-raw-error')
+            with self.assertRaisesRegex(auth.ChatGPTError, 'could not download OpenAI signing keys') as result:
+                auth.validate_identity('secret-token', 'client')
+            self.assertNotIn('secret-token', str(result.exception))
