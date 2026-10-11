@@ -139,6 +139,7 @@ function AIBrain.request_decision(character, user_message)
     notes               = mem.notes,
     todo_lists          = mem.todo_lists,
     recent_actions      = mem.recent_actions,
+    long_term_goal      = mem.long_term_goal,
     user_directive      = mem.user_directive,
     force_skill         = mem.force_skill,
     last_action_results = mem.last_action_results,

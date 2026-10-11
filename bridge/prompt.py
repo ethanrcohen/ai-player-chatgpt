@@ -101,6 +101,9 @@ def build_messages(payload: dict, system_prefix: str = "") -> list[dict]:
     if mem.get("notes"):
         notes = [n.get("text", "") if isinstance(n, dict) else str(n) for n in mem["notes"]]
         parts.append("Notes: " + " | ".join(notes))
+    if mem.get("long_term_goal"):
+        parts.append("Persistent player goal: " + str(mem["long_term_goal"]) +
+                     ". Work toward this across turns. Check actual progress; if complete, maintain the result and report completion rather than repeating construction. Temporary directives take priority, then resume this goal.")
     if mem.get("user_directive"):
         parts.append("Player directive (keep following): " + str(mem["user_directive"]))
 

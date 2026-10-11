@@ -546,6 +546,27 @@ end)
 -- Console commands
 -- -------------------------------------------------------------------------
 
+commands.add_command("ai-goal", "Persistent goal: /ai-goal <goal> | /ai-goal clear | /ai-goal",
+  function(cmd)
+    if not storage.ai_player then return end
+    local mem = storage.ai_player.memory
+    local text = (cmd.parameter or ""):match("^%s*(.-)%s*$")
+    if text == "" then
+      game.print("[AI] Goal: " .. (mem.long_term_goal or "none"))
+      return
+    end
+    if text:lower() == "clear" then
+      mem.long_term_goal = nil
+      game.print("[AI] Long-term goal cleared. Autonomous play continues.")
+      return
+    end
+    mem.long_term_goal = text
+    game.print("[AI] Goal saved: " .. text .. " (until replaced or /ai-goal clear)")
+    local character = AICharacter.get_character()
+    if character then AIBrain.request_decision(character, nil) end
+  end
+)
+
 commands.add_command("spawn-ai-player", "Spawn or reset the AI player character",
   function()
     if not storage.ai_player then
