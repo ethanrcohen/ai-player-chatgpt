@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.5.2
+Date: 2026-10-14
+  Features:
+    - Add filtered, paginated area inspection with exact coordinates and inserter endpoints.
+    - Bridge can investigate using read-only queries before deciding; observation-only by default.
+---------------------------------------------------------------------------------------------------
 Version: 0.5.1
 Date: 2026-10-11
   Features:

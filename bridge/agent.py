@@ -8,11 +8,13 @@ api.ACTIONS (see factorio/api.py). Keeps a short history of execution results.
 """
 
 from collections import deque
+import json
 import logging
 import time
 
 from .config import BridgeConfig
-from .factorio.api import parse_response
+from .factorio.api import parse_response, validate
+from .investigation import investigate
 from .factorio.watcher import PendingRequest
 from .metrics import STATUS_OK, STATUS_PARSE_ERROR, STATUS_TIMEOUT, record_exchange
 from .prompt import build_messages
@@ -31,7 +33,9 @@ def _fallback(reason: str) -> list[dict]:
 
 
 class Agent:
-    def __init__(self):
+    def __init__(self, query=None, observation_only=False):
+        self._query = query
+        self._observation_only = observation_only
         self._recent_results = deque(maxlen=8)
         self._previous_entries = None
 
@@ -56,7 +60,10 @@ class Agent:
         log.info("Routing request %s via %s (model=%s)",
                  req.req_id, provider_cfg.provider, provider_cfg.model)
         t0 = time.monotonic()
-        content = complete(messages, provider_cfg)
+        if self._observation_only:
+            messages[0]['content'] += '\nObservation-only session: investigate and explain findings with chat or summary actions. No construction, transfers, research, or movement.'
+        content = (investigate(messages, complete, provider_cfg, self._query)
+                   if self._query else complete(messages, provider_cfg))
         elapsed = time.monotonic() - t0
 
         if content is None:
@@ -73,7 +80,22 @@ class Agent:
         log.info("Request %s: response in %.1fs (%d chars)", req.req_id, elapsed, len(content))
         log.debug("Request %s raw: %s", req.req_id, content[:600])
 
-        entries = parse_response(content)
+        if self._query:
+            # Reject the entire dependent batch if any entry is invalid.
+            try:
+                raw = json.loads(content)
+                entries = validate(raw) if isinstance(raw, list) else None
+                if not entries or len(entries) != len(raw):
+                    entries = None
+            except (ValueError, TypeError):
+                entries = None
+        else:
+            entries = parse_response(content)
+        if entries and self._observation_only and any(
+            e.get('action') not in {'chat', 'summary', 'wait'} or 'skill' in e
+            for e in entries
+        ):
+            return _fallback('observation-only mode blocked a modifying action')
         if entries is None:
             log.warning("Request %s: could not parse skills/actions — fallback. Raw: %s",
                         req.req_id, content[:600])

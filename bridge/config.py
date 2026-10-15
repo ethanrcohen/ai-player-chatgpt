@@ -110,6 +110,7 @@ class BridgeConfig:
     rcon: RCONConfig = field(default_factory=RCONConfig)
 
     # Bridge behaviour
+    observation_only: bool = True
     verbose: bool = True
     poll_interval: float = 0.1     # seconds between directory scans
 
@@ -214,6 +215,7 @@ class ConfigLoader:
             except ValueError:
                 pass
         cfg.rcon.password = self._e("FACTORIO_RCON_PASSWORD", cfg.rcon.password)
+        cfg.observation_only = self._e("AI_OBSERVATION_ONLY", "1") != "0"
         cfg.verbose       = self._e("BRIDGE_VERBOSE", "1") != "0"
         return cfg
 

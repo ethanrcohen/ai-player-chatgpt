@@ -98,7 +98,7 @@ def main() -> None:
 
     # Phase 4: create watcher and agent
     watcher = FileWatcher(cfg.output_dir, cfg.poll_interval, request_timeout=derived_timeout)
-    agent = Agent()
+    agent = Agent(query=rcon.run_query, observation_only=cfg.observation_only)
 
     # Phase 3: clear stale pending requests left over from a previous session.
     # Order matters: clear the mod's queue first, then purge the matching

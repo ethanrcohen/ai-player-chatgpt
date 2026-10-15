@@ -201,6 +201,8 @@ REGISTRY.inspect_entity = function(ctx, p)
   end
 
   local entry = AIPerception.describe_entity(best, ctx.force)
+  entry.position = {x=best.position.x, y=best.position.y}
+  entry.observed_tick = game.tick
   entry.health    = best.health and math.floor(best.health) or nil
   entry.force     = best.force and best.force.name or nil
   entry.direction = best.direction
@@ -296,6 +298,50 @@ end
 -- -------------------------------------------------------------------------
 -- Dispatch
 -- -------------------------------------------------------------------------
+
+-- Area discovery for the autonomous investigation loop. Filter before paging,
+-- so dense belts do not hide machines. Coordinates retain half-tile precision.
+REGISTRY.scan_area = function(ctx, p)
+  local center = center_of(ctx, p)
+  if not center then return {error = "need x,y or an AI character"} end
+  local radius = math.max(1, math.min(num(p.radius, 32), 128))
+  local offset = math.max(0, math.floor(num(p.offset, 0)))
+  local limit = math.max(1, math.min(math.floor(num(p.limit, 25)), 50))
+  local filter = {position=center, radius=radius, force=ctx.force}
+  if p.name then filter.name = p.name end
+  if p.type then filter.type = p.type end
+  local matches = {}
+  for _, e in pairs(ctx.surface.find_entities_filtered(filter)) do
+    if e.valid and e.type ~= "character" then
+      local recipe = nil
+      if e.type == "assembling-machine" or e.type == "furnace" then
+        local r = e.get_recipe(); recipe = r and r.name
+      end
+      if not p.recipe or recipe == p.recipe then matches[#matches + 1] = e end
+    end
+  end
+  table.sort(matches, function(a,b)
+    local da, db = dist(a.position, center), dist(b.position, center)
+    if da ~= db then return da < db end
+    return (a.unit_number or 0) < (b.unit_number or 0)
+  end)
+  local entities = {}
+  for i = offset + 1, math.min(#matches, offset + limit) do
+    local e = matches[i]
+    local entry = AIPerception.describe_entity(e, ctx.force)
+    entry.position = {x=e.position.x, y=e.position.y}
+    entry.direction = e.direction
+    if e.type == "inserter" then
+      entry.pickup_position = e.pickup_position
+      entry.drop_position = e.drop_position
+    end
+    entities[#entities + 1] = entry
+  end
+  return {tick=game.tick, surface=ctx.surface.name, center=center,
+    radius=radius, total=#matches, offset=offset, entities=entities,
+    next_offset=(offset + limit < #matches) and (offset + limit) or nil,
+    note="Area contents only; proximity does not establish a logistics connection. Re-scan if the world changes between pages."}
+end
 
 AIQueries.REGISTRY = REGISTRY
 
